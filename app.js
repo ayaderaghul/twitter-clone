@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const routes = require('./routes');
+const bodyParser = require('body-parser');
 
 const app = express();
 
@@ -11,6 +12,8 @@ app.use(express.json());
 app.use(cors());
 app.use(helmet());
 app.use(morgan('dev'));
+app.use(bodyParser.json()); // For JSON bodies
+app.use(bodyParser.urlencoded({ extended: true })); // For form data
 
 // Routes
 app.use('/api', routes);

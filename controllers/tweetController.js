@@ -4,7 +4,12 @@ const User = require('../models/User');
 const mongoose = require('mongoose')
 const {extractMentions, validateMentions, formatMentionData} = require('../utils/mentionParser')
 const { getIo, sendNotification } = require('../services/socketService');
+const { uploadToCloudinary } = require('../utils/cloudinary');
 
+console.log('uploadToCloudinary:', uploadToCloudinary);
+
+const fs = require('fs');
+const path = require('path');
 
 exports.getTimeline = async (req, res) => {
     try {
@@ -35,58 +40,87 @@ exports.getTimeline = async (req, res) => {
         res.status(500).json({ error: 'An error occurred while fetching the timeline' });
     }
 }
+
 exports.createTweet = async (req, res) => {
-    try {
-        const { content } = req.body;
-        if (!content) {
-            return res.status(400).json({ error: 'Content is required' });
-        }
-        const author = req.user.id;
-        if (!author) {
-            return res.status(400).json({ error: 'Author is required' });
-        }
-        if (!req.user || !req.user.id) {
-            return res.status(401).json({ error: 'Unauthorized: no user info' });
-        }
+  try {
+    const { content } = req.body;
 
-        const userExists = await User.findById(author);
-        if (!userExists) return res.status(400).json({ error: 'Author not found.' });
-
-        try {
-            const mentionedUsernames = extractMentions(content)
-            console.log('extracted mentions', mentionedUsernames)
-
-            const {valid: validMentions} = await validateMentions(mentionedUsernames)
-            console.log('valid mentions', validMentions)
-
-            const mentions = await formatMentionData(validMentions)
-            console.log('formated mentions', mentions)
-
-
-
-            const tweet = await Tweet.create({ content, author,
-                mentions: mentions.map(mention => ({
-                    username: mention.username,
-                    userId: mention.userId
-                }))
-             });
-
-             const populatedTweet = await Tweet.findById(tweet._id)
-                .populate('author', 'username')
-                .populate('mentions.userId', 'username');
-             console.log(populatedTweet)
-               res.status(201).json(populatedTweet);
-            // await tweet.save()
-            // res.status(201).json(tweet);
-            } catch (error) {
-            console.error('Tweet creation error:', error);
-            console.log('error', error.message);
-            res.status(500).json({ error: 'Failed to create tweet.' });
-            }
-    } catch (error) {
-        res.status(500).json({ error: 'An error occurred while creating the tweet' });
+    // ✅ Validate input
+    if (!content) {
+      return res.status(400).json({ error: 'Content is required' });
     }
-}
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Unauthorized: no user info' });
+    }
+
+    const author = req.user.id;
+    const userExists = await User.findById(author);
+    if (!userExists) {
+      return res.status(400).json({ error: 'Author not found.' });
+    }
+
+    // ✅ Handle file upload
+    let mediaData = null;
+    if (req.file) {
+      console.log('📂 Multer uploaded file:', req.file);
+
+      // Create a safe filename (no special chars)
+      const sanitizedFilename = req.file.originalname.replace(/[^\w.]/g, '_');
+      const safePath = path.join(path.dirname(req.file.path), sanitizedFilename);
+
+      try {
+        fs.renameSync(req.file.path, safePath); // Rename to safe name
+        // Let Cloudinary handle deletion
+        const result = await uploadToCloudinary(safePath);
+        mediaData = {
+          url: result.secure_url,
+          public_id: result.public_id,
+          mediaType: result.resource_type
+        };
+      } catch (fileErr) {
+        console.error('❌ File/Cloudinary error:', fileErr.message);
+        return res.status(500).json({ error: 'Media upload failed' });
+      }
+    }
+
+    // ✅ Handle mentions (won’t break if fails)
+    let mentions = [];
+    try {
+      const mentionedUsernames = extractMentions(content);
+      const { valid: validMentions } = await validateMentions(mentionedUsernames);
+      mentions = await formatMentionData(validMentions);
+    } catch (mentionErr) {
+      console.warn('⚠️ Mention parsing failed:', mentionErr.message);
+    }
+
+    // ✅ Create tweet in DB
+    try {
+      const tweet = await Tweet.create({
+        content,
+        author,
+        media: mediaData,
+        mentions: mentions.map(m => ({
+          username: m.username,
+          userId: m.userId
+        }))
+      });
+
+      const populatedTweet = await Tweet.findById(tweet._id)
+        .populate('author', 'username')
+        .populate('mentions.userId', 'username');
+
+      return res.status(201).json(populatedTweet);
+    } catch (dbErr) {
+      console.error('❌ Database error creating tweet:', dbErr.message);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+  } catch (err) {
+    console.error('❌ Unexpected error in createTweet:', err.message);
+    return res.status(500).json({ error: 'An error occurred while creating the tweet' });
+  }
+};
+
 
 exports.likeTweet = async (req, res) => {
     try {
@@ -250,3 +284,4 @@ exports.retweetTweet = async (req, res) => {
             return res.status(500).json({error: 'server error',details: error.message})
         }
     }
+

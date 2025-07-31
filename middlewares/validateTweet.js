@@ -1,5 +1,9 @@
 // middlewares/validateTweet.js
 const validateTweet = (req, res, next) => {
+  if (!req.body) {
+    return res.status(400).json({ error: 'Request body is missing' });
+  }
+
   const { content } = req.body;
 
   // Basic existence check

@@ -1,11 +1,11 @@
 const User = require('../models/User')
 
 function extractMentions(text) {
-    if (!text || typeof text !== 'string') return []
-    const mentionRegex = /@([a-zA-Z0-9_]+)/g
-    const matches = [...text.match(mentionRegex)]
-
-    return [...new Set(matches.map(match => match.substring(1)))]
+  if (!text || typeof text !== 'string') return []; // Safe guard
+  
+  const mentionRegex = /@(\w+)/g;
+  const matches = text.match(mentionRegex) || []; // Fallback for no matches
+  return matches.map(match => match.substring(1)); // Remove '@' prefix
 }
 
 async function validateMentions(usernames) {
