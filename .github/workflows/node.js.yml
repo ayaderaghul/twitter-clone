@@ -26,4 +26,17 @@ jobs:
       run: npm test
       
     - name: Verify server start
-      run: npm start
+      run: |
+        # Start server in background
+        npm start &
+        SERVER_PID=$!
+        
+        # Wait for startup
+        sleep 5
+        
+        # Test health check
+        curl -s http://localhost:$PORT/health
+        
+        # Stop server
+        kill $SERVER_PID || true
+        wait $SERVER_PID 2>/dev/null
