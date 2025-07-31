@@ -10,8 +10,9 @@ router.get('/me', authMiddleware, userController.getCurrentUser);
 // router.get('/:username/following', userController.getFollowing);
 router.post('/:userId/follow', authMiddleware, userController.followUser);
 router.post('/:userId/unfollow', authMiddleware, userController.unfollowUser);
+router.get('/toFollow', authMiddleware, userController.whoToFollow)
+
 // router.get('/suggestions', authMiddleware, userController.getSuggestions);
 // router.get('/search', userController.searchUsers);
 router.get('/:userId', authMiddleware, userController.getOtherUser);
-
 module.exports = router;

@@ -68,9 +68,16 @@ const tweetSchema = new Schema({
         trim: true
     }],
     mentions: [{
-        type: Schema.Types.ObjectId,
-        ref: 'User'
-    }],
+    username: {
+      type: String,
+      required: true
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    }
+  }],
     media: [{
         url: String,
         mediaType: {

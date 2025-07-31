@@ -1,21 +1,26 @@
 require('dotenv').config();
-const app = require('./app');
-
+const http = require('http');
 const mongoose = require('mongoose');
-
+const app = require('./app');
 const { PORT, MONGODB_URI } = require('./config');
+const { initSocket } = require('./services/socketService');
 
 mongoose.connect(MONGODB_URI)
   .then(() => {
-    console.log('Connected to MongoDB');
-    app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+    console.log('✅ Connected to MongoDB');
+
+    // Create HTTP server
+    const server = http.createServer(app);
+
+    // Initialize Socket.IO and event handlers
+    initSocket(server);
+
+    // Start server
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
     });
   })
   .catch((err) => {
-    console.error('Error connecting to MongoDB:', err);
+    console.error('❌ MongoDB connection error:', err);
     process.exit(1);
-  })
-  .finally(() => {
-    console.log('MongoDB connection attempt finished');
   });

@@ -1,7 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-
+const mongoose = require('mongoose')
 
 exports.getCurrentUser = async (req, res, next) => {
     try {
@@ -26,17 +26,37 @@ exports.getCurrentUser = async (req, res, next) => {
 
 exports.getOtherUser = async (req, res, next) => {
     const userId = req.params.userId;
+    // Validate the userId format first
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid user ID format' });
+    }
     try {
-        const user = await User.findById(userId)
-            .select('-password')
-            .populate({
-                path: 'followers',
-                select: 'username'
-            })
-            .populate({
-                path: 'following',
-                select: 'username'
-            });
+        console.log('inside trycatch getotheruser', userId)
+        // 2. Find the user with proper population and null checks
+    const user = await User.findById(userId)
+      .select('-password') // Exclude sensitive data
+      .populate({
+        path: 'followers',
+        select: 'username _id',
+        options: { lean: true } // Return plain JS objects
+      })
+      .populate({
+        path: 'following',
+        select: 'username _id',
+        options: { lean: true }
+      })
+      .lean(); // Convert to plain JS object
+
+    console.log('Found user:', user ? 'exists' : 'null');
+
+    // 3. Handle null user case
+    if (!user) {
+      console.log('User not found with ID:', userId);
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
+    }
         console.log('user populated', user)
         
         // Filter out any null values
@@ -125,4 +145,19 @@ exports.unfollowUser = async (req, res, next) => {
         success: true,
         message: `You have unfollowed ${userToUnfollow.username}`
     })
+}
+
+
+
+exports.whoToFollow = async (req, res, next) => {
+    try {
+        const suggestions = await User.find({_id: { $ne: req.user.id }})
+            .sort({followersCount: -1})
+            .limit(5)
+            .select('_id username profilePicture followersCount')
+
+        res.json(suggestions)
+    } catch (error) {
+        res.status(500).json({error: 'server error'})
+    }
 }

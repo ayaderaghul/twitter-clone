@@ -2,6 +2,9 @@ const Tweet = require('../models/Tweet');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const mongoose = require('mongoose')
+const {extractMentions, validateMentions, formatMentionData} = require('../utils/mentionParser')
+const { getIo, sendNotification } = require('../services/socketService');
+
 
 exports.getTimeline = async (req, res) => {
     try {
@@ -38,14 +41,11 @@ exports.createTweet = async (req, res) => {
         if (!content) {
             return res.status(400).json({ error: 'Content is required' });
         }
-        console.log('User ID from request:', req.user.id);
         const author = req.user.id;
-        console.log('Author ID:', author);
         if (!author) {
             return res.status(400).json({ error: 'Author is required' });
         }
         if (!req.user || !req.user.id) {
-            console.log('⚠️ Missing authenticated user');
             return res.status(401).json({ error: 'Unauthorized: no user info' });
         }
 
@@ -53,10 +53,31 @@ exports.createTweet = async (req, res) => {
         if (!userExists) return res.status(400).json({ error: 'Author not found.' });
 
         try {
-            console.log('Creating tweet with:', { content, author });
-            const tweet = await Tweet.create({ content, author });
-;
-            res.status(201).json(tweet);
+            const mentionedUsernames = extractMentions(content)
+            console.log('extracted mentions', mentionedUsernames)
+
+            const {valid: validMentions} = await validateMentions(mentionedUsernames)
+            console.log('valid mentions', validMentions)
+
+            const mentions = await formatMentionData(validMentions)
+            console.log('formated mentions', mentions)
+
+
+
+            const tweet = await Tweet.create({ content, author,
+                mentions: mentions.map(mention => ({
+                    username: mention.username,
+                    userId: mention.userId
+                }))
+             });
+
+             const populatedTweet = await Tweet.findById(tweet._id)
+                .populate('author', 'username')
+                .populate('mentions.userId', 'username');
+             console.log(populatedTweet)
+               res.status(201).json(populatedTweet);
+            // await tweet.save()
+            // res.status(201).json(tweet);
             } catch (error) {
             console.error('Tweet creation error:', error);
             console.log('error', error.message);
@@ -113,6 +134,36 @@ exports.likeTweet = async (req, res) => {
         ).populate('author', 'username avatar');
         updatedTweet.likeCount = updatedTweet.likes.length
         await updatedTweet.save()
+
+// Send notification if this was a new like (not an unlike)
+        if (!isLiked && !tweet.author._id.equals(userObjectId)) {
+            try {
+                await sendNotification(tweet.author._id, {
+                    type: 'like',
+                    sender: userId,
+                    tweet: tweet._id
+                });
+                console.log('Notification sent for like');
+            } catch (notifError) {
+                console.error('Failed to send notification:', notifError);
+                // Don't fail the request if notification fails
+            }
+        }
+
+        // Emit real-time update via Socket.IO
+        const io = getIo();
+        if (io) {
+            io.emit('tweetUpdate', {
+                tweetId: updatedTweet._id,
+                likeCount: updatedTweet.likes.length,
+                action: isLiked ? 'unlike' : 'like',
+                userId
+            });
+        }
+
+
+
+
         return res.json({
             success: true,
             tweetId: updatedTweet._id,
