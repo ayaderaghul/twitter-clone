@@ -14,6 +14,31 @@ app.use(morgan('dev'));
 
 app.use('/api', routes);
 
+
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      'script-src': [
+        "'self'",
+        'https://kit.fontawesome.com',
+        // Add other allowed script sources here
+      ],
+      'script-src-elem': [
+        "'self'",
+        'https://kit.fontawesome.com',
+        // Add other allowed script sources here
+      ],
+      'connect-src': [
+        "'self'",
+        'https://ka-f.fontawesome.com',
+        // Add other allowed connect sources here
+      ]
+    }
+  })
+);
+
+
 // error handling
 app.use((err, req, res, next) => {
     console.error(err.stack);
@@ -35,5 +60,11 @@ app.use((req, res, next) => {
   res.status(404).send('Not Found');
 });
 
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
 module.exports = app;

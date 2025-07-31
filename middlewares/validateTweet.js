@@ -1,5 +1,5 @@
 // middlewares/validateTweet.js
-export const validateTweet = (req, res, next) => {
+const validateTweet = (req, res, next) => {
   const { content } = req.body;
 
   // Basic existence check
@@ -19,3 +19,5 @@ export const validateTweet = (req, res, next) => {
 
   next(); // Valid tweet, let it fly! 🐦
 };
+
+module.exports = {validateTweet}
