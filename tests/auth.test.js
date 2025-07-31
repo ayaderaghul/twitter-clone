@@ -67,6 +67,12 @@ describe('Auth API', () => {
     body: res.body,
     headers: res.headers
   });
+  // 3. Enhanced debug output
+  console.log('Full Error:', res.body.error || res.body);
+  console.log('Request Payload:', {
+    email: testUser.email,
+    password: '***' // Don't log actual password
+  });
 
   // 4. Assertions
   expect(res.statusCode).toBe(200);
