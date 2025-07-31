@@ -38,45 +38,35 @@ describe('Auth API', () => {
   
 
   test('Login user', async () => {
-// 1. Register user and verify success
-  const registerResponse = await request(app)
+  // 1. Verify registration
+  const regRes = await request(app)
     .post('/api/auth/register')
     .send(testUser);
-  
-  expect(registerResponse.statusCode).toBe(201);
-  
-  // 2. Verify user exists in database
+  expect(regRes.statusCode).toBe(201);
+
+  // 2. Check database state
   const dbUser = await User.findOne({ email: testUser.email });
-  console.log('Database User:', {
+  console.log('Database user:', {
     email: dbUser.email,
-    password: dbUser.password,
-    _id: dbUser._id
+    passwordExists: !!dbUser.password
   });
 
-  // 2. Make login request
-  const res = await request(app)
+  // 3. Attempt login
+  const loginRes = await request(app)
     .post('/api/auth/login')
     .send({
       email: testUser.email,
       password: testUser.password
     });
 
-  // 3. Debug output
-  console.log('Login Response:', {
-    status: res.status,
-    body: res.body,
-    headers: res.headers
-  });
-  // 3. Enhanced debug output
-  console.log('Full Error:', res.body.error || res.body);
-  console.log('Request Payload:', {
-    email: testUser.email,
-    password: '***' // Don't log actual password
-  });
+  // 4. Debug output if failed
+  if (loginRes.statusCode !== 200) {
+    console.log('Registration response:', regRes.body);
+    console.log('Login failure details:', loginRes.body);
+  }
 
-  // 4. Assertions
-  expect(res.statusCode).toBe(200);
-  expect(res.body.data).toHaveProperty('token');
+  expect(loginRes.statusCode).toBe(200);
+  expect(loginRes.body.data).toHaveProperty('token');
 });
 
 
