@@ -25,7 +25,22 @@ app.use(
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       'script-src': ["'self'", 'https://kit.fontawesome.com'],
       'script-src-elem': ["'self'", 'https://kit.fontawesome.com'],
-      'connect-src': ["'self'", 'https://ka-f.fontawesome.com']
+      'connect-src': ["'self'", 'https://ka-f.fontawesome.com'],
+      'img-src': [
+        "'self'",
+        'data:',
+        'blob:',
+        'https://res.cloudinary.com',       // Cloudinary base domain
+        'https://*.cloudinary.com',         // All Cloudinary subdomains
+        'https://*.twemoji.maxcdn.com'      // For emoji support if needed
+      ],
+      'media-src': [                        // If you're using Cloudinary for videos
+        "'self'",
+        'data:',
+        'blob:',
+        'https://res.cloudinary.com',
+        'https://*.cloudinary.com'
+      ]
     }
   })
 );
